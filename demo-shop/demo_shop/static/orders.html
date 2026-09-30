@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>주문 내역 - Demo Shop</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav></nav>
+  <main>
+    <h1>주문 내역 <span class="muted" data-testid="order-count" id="count"></span></h1>
+    <p class="muted" data-testid="orders-empty" id="empty" hidden>주문 내역이 없습니다.</p>
+    <div data-testid="order-list" id="list"></div>
+  </main>
+  <script src="common.js"></script>
+  <script>
+    renderNav()
+      .then(() => api("/api/orders"))
+      .then((orders) => {
+        document.getElementById("count").textContent = `${orders.length}건`;
+        document.getElementById("empty").hidden = orders.length > 0;
+        document.getElementById("list").replaceChildren(
+          ...orders.map((o) =>
+            el("div", { class: "card row", testid: `order-item-${o.id}` }, [
+              el("span", { class: "grow", text: `주문 #${o.id} · ${o.items.map((i) => `${i.name}×${i.qty}`).join(", ")}` }),
+              el("strong", { testid: `order-total-${o.id}`, text: won(o.total) }),
+            ])
+          )
+        );
+      });
+  </script>
+</body>
+</html>

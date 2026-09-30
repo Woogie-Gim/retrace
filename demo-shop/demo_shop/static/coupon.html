@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>쿠폰 적용 - Demo Shop</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav></nav>
+  <main>
+    <h1>쿠폰 적용</h1>
+    <div class="card">
+      <dl class="summary">
+        <dt>상품 합계</dt><dd data-testid="coupon-subtotal" id="subtotal">-</dd>
+        <dt>현재 적용 쿠폰</dt><dd data-testid="coupon-applied" id="applied">없음</dd>
+      </dl>
+    </div>
+    <div class="card row">
+      <select class="grow" data-testid="coupon-select" id="select"></select>
+      <button class="primary" data-testid="coupon-apply" id="apply">적용</button>
+    </div>
+    <p class="error" data-testid="error-message" id="error"></p>
+    <button data-testid="skip-coupon" id="skip">쿠폰 없이 결제하기</button>
+  </main>
+  <script src="common.js"></script>
+  <script>
+    const selectEl = document.getElementById("select");
+    const applyEl = document.getElementById("apply");
+    const errorEl = document.getElementById("error");
+    let couponNames = {};
+
+    function renderCart(cart) {
+      document.getElementById("subtotal").textContent = won(cart.subtotal);
+      document.getElementById("applied").textContent =
+        cart.coupons.map((c) => couponNames[c] || c).join(", ") || "없음";
+    }
+
+    applyEl.addEventListener("click", async () => {
+      applyEl.disabled = true;
+      errorEl.textContent = "";
+      try {
+        await api("/api/coupons/apply", {
+          method: "POST",
+          body: JSON.stringify({ code: selectEl.value }),
+        });
+        location.href = "checkout.html";
+      } catch (e) {
+        errorEl.textContent = e.message;
+        applyEl.disabled = false;
+      }
+    });
+
+    document.getElementById("skip").addEventListener("click", () => {
+      location.href = "checkout.html";
+    });
+
+    renderNav().then(async (me) => {
+      couponNames = Object.fromEntries(me.coupons.map((c) => [c.code, c.name]));
+      selectEl.replaceChildren(
+        ...me.coupons.map((c) => el("option", { value: c.code, text: c.name }))
+      );
+      applyEl.disabled = me.coupons.length === 0;
+      if (me.coupons.length === 0) selectEl.append(el("option", { text: "사용 가능한 쿠폰 없음" }));
+      renderCart(await api("/api/cart"));
+    });
+  </script>
+</body>
+</html>

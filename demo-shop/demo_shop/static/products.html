@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>상품 목록 - Demo Shop</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav></nav>
+  <main>
+    <h1>상품 목록</h1>
+    <p class="muted" data-testid="loading" id="loading" hidden>불러오는 중...</p>
+    <div data-testid="error-message" id="error" hidden>
+      <p class="error">상품 목록을 불러오지 못했습니다.</p>
+      <button data-testid="retry" id="retry">다시 시도</button>
+    </div>
+    <div data-testid="product-list" id="list"></div>
+    <p class="toast" data-testid="toast" id="toast"></p>
+  </main>
+  <script src="common.js"></script>
+  <script>
+    const listEl = document.getElementById("list");
+    const loadingEl = document.getElementById("loading");
+    const errorEl = document.getElementById("error");
+    const toastEl = document.getElementById("toast");
+
+    function render(products) {
+      listEl.replaceChildren(
+        ...products.map((p) =>
+          el("div", { class: "card row", testid: `product-item-${p.id}` }, [
+            el("span", { class: "grow", testid: `product-name-${p.id}`, text: p.name }),
+            el("span", { testid: `product-price-${p.id}`, text: won(p.price) }),
+            el("button", {
+              class: "primary",
+              testid: `add-to-cart-${p.id}`,
+              text: "담기",
+              onclick: () => addToCart(p),
+            }),
+          ])
+        )
+      );
+    }
+
+    async function addToCart(p) {
+      try {
+        await updateCart(p.id, 1);
+        toastEl.textContent = `${p.name}을(를) 장바구니에 담았습니다.`;
+      } catch (e) {
+        toastEl.textContent = "";
+      }
+    }
+
+    function fetchProducts(timeoutMs) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      return fetch("/api/products", { signal: ctrl.signal })
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .finally(() => clearTimeout(timer));
+    }
+
+    async function load() {
+      const { bug_mode } = await getConfig();
+      if (bug_mode) {
+        // BUG-03 : 2초 타임아웃 후 로딩·에러 처리 없음 → 빈 화면
+        fetchProducts(2000).then(render).catch(() => {});
+        return;
+      }
+      loadingEl.hidden = false;
+      errorEl.hidden = true;
+      try {
+        render(await fetchProducts(15000));
+      } catch (e) {
+        errorEl.hidden = false;
+      } finally {
+        loadingEl.hidden = true;
+      }
+    }
+
+    document.getElementById("retry").addEventListener("click", load);
+    renderNav().then(load);
+  </script>
+</body>
+</html>
