@@ -12,6 +12,7 @@ class Step:
     text: str
     line: int = 0
     background: bool = False  # 교란 삽입·제거 제외 대상
+    perturbation: str | None = None  # 탐색기가 삽입한 교란 종류
 
 
 @dataclass
