@@ -32,6 +32,7 @@ class RunResult:
     logs: dict[str, list[dict]] = field(default_factory=lambda: {"console": [], "network": []})
     screenshots: list[str] = field(default_factory=list)
     duration_ms: int = 0
+    vars: dict = field(default_factory=dict)  # 스텝이 남긴 공유 값 (오라클 참고용)
 
     @property
     def passed(self) -> bool:
@@ -95,6 +96,7 @@ def run_scenario(
         logs={"console": driver.console_logs(), "network": driver.network_logs()},
         screenshots=[r.screenshot for r in results if r.screenshot],
         duration_ms=int((time.perf_counter() - started) * 1000),
+        vars=dict(ctx.vars),
     )
 
 

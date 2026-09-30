@@ -1,4 +1,6 @@
 """스텝 레지스트리 : 스텝 정의는 한 번만 작성, 엔진·pytest-bdd 공유"""
+import itertools
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -17,10 +19,25 @@ class StepContext:
         return self.base_url.rstrip("/") + "/" + path.lstrip("/")
 
 
+# 조사 선택 표기 : (을|를) / (이|가) 등 한 글자 대안
+JOSA_ALT = re.compile(r"\((\w)\|(\w)\)")
+
+
+def expand_pattern(pattern: str) -> list[str]:
+    # 조사 대안 조합별 패턴 전개
+    parts = JOSA_ALT.split(pattern)
+    literals, alts = parts[0::3], list(zip(parts[1::3], parts[2::3]))
+    out = []
+    for combo in itertools.product(*alts):
+        out.append(literals[0] + "".join(c + lit for c, lit in zip(combo, literals[1:])))
+    return out
+
+
 @dataclass
 class StepDef:
     pattern: str
     func: Callable[..., Any]
+    idempotent: bool = False  # 재실행해도 결과가 같아야 하는 스텝 (뒤로가기 후 재실행 후보)
 
     def __post_init__(self):
         self.parser = parse.compile(self.pattern)
@@ -43,16 +60,19 @@ class StepRegistry:
     def __init__(self):
         self.defs: list[StepDef] = []
 
-    def add(self, pattern: str, func: Callable[..., Any]) -> StepDef:
-        if any(d.pattern == pattern for d in self.defs):
-            raise ValueError(f"중복 스텝 패턴: {pattern}")
-        d = StepDef(pattern, func)
-        self.defs.append(d)
-        return d
+    def add(self, pattern: str, func: Callable[..., Any], idempotent: bool = False) -> list[StepDef]:
+        added = []
+        for p in expand_pattern(pattern):
+            if any(d.pattern == p for d in self.defs):
+                raise ValueError(f"중복 스텝 패턴: {p}")
+            d = StepDef(p, func, idempotent)
+            self.defs.append(d)
+            added.append(d)
+        return added
 
-    def step(self, pattern: str):
+    def step(self, pattern: str, idempotent: bool = False):
         def deco(func):
-            self.add(pattern, func)
+            self.add(pattern, func, idempotent)
             return func
         return deco
 

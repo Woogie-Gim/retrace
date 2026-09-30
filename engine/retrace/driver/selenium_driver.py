@@ -13,9 +13,10 @@ from .. import config
 from .base import Driver
 
 # CDP 네트워크 조건 (throughput 단위 : bytes/s, -1 = 제한 없음)
+# slow-3g : latency 3000ms, BUG-03 2초 타임아웃 대비 여유
 NETWORK_PROFILES = {
     "fast": {"offline": False, "latency": 0, "downloadThroughput": -1, "uploadThroughput": -1},
-    "slow-3g": {"offline": False, "latency": 400, "downloadThroughput": 50_000, "uploadThroughput": 50_000},
+    "slow-3g": {"offline": False, "latency": 3000, "downloadThroughput": 50_000, "uploadThroughput": 50_000},
     "offline": {"offline": True, "latency": 0, "downloadThroughput": 0, "uploadThroughput": 0},
 }
 
