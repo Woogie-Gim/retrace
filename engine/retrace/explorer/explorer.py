@@ -23,6 +23,7 @@ class ExploreOptions:
     top_n: int = 5
     window: tuple[int, int] = (1280, 800)  # run마다 복구할 창 크기
     state_keywords: tuple[str, ...] = STATE_KEYWORDS
+    prefer: tuple[str, ...] = ()  # 맨 앞에 둘 교란 종류
     catalog: CatalogOptions = field(default_factory=CatalogOptions)
 
 
@@ -99,6 +100,19 @@ def judge(result: RunResult, oracles: list[Oracle]) -> tuple[str, list[Verdict]]
     return ("hit" if any(v.hit for v in verdicts) else "pass"), verdicts
 
 
+def run_clean(
+    driver: Driver,
+    base_url: str,
+    scenario: Scenario,
+    window: tuple[int, int] = (1280, 800),
+    registry: StepRegistry | None = None,
+) -> RunResult:
+    # 이전 run 교란 원상 복구 후 실행
+    driver.set_network("fast")
+    driver.resize(*window)
+    return run_scenario(scenario, driver, base_url, registry=registry)
+
+
 class Explorer:
     def __init__(
         self,
@@ -119,10 +133,7 @@ class Explorer:
         self.on_event = on_event or (lambda name, data: None)
 
     def _run(self, scenario: Scenario) -> RunResult:
-        # 이전 run 교란 원상 복구
-        self.driver.set_network("fast")
-        self.driver.resize(*self.opts.window)
-        return run_scenario(scenario, self.driver, self.base_url, registry=self.registry)
+        return run_clean(self.driver, self.base_url, scenario, self.opts.window, self.registry)
 
     # 후보 생성
     def candidates(self, scenario: Scenario) -> list[Candidate]:
@@ -145,8 +156,12 @@ class Explorer:
                 seq = [*steps[: pos + 1], *inserted, *steps[pos + 1:]]
                 out.append(Candidate(0, pos, kind, priority, seq))
 
-        # 우선순위 : 상태 변경 직후 → 교란 종류 → 위치
-        out.sort(key=lambda c: (not c.priority, KINDS.index(c.kind), c.position))
+        # 우선순위 : 우선 종류 → 상태 변경 직후 → 교란 종류 → 위치
+        prefer = self.opts.prefer
+        out.sort(key=lambda c: (
+            c.kind not in prefer, prefer.index(c.kind) if c.kind in prefer else 0,
+            not c.priority, KINDS.index(c.kind), c.position,
+        ))
         for i, c in enumerate(out):
             c.index = i
         return out
