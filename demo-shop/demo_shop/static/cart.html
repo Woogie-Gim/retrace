@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>장바구니 - Demo Shop</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav></nav>
+  <main>
+    <h1>장바구니</h1>
+    <p class="muted" data-testid="cart-empty" id="empty" hidden>장바구니가 비어 있습니다.</p>
+    <div data-testid="cart-list" id="list"></div>
+    <div class="card row">
+      <span class="grow">상품 합계</span>
+      <strong data-testid="cart-subtotal" id="subtotal">0원</strong>
+    </div>
+    <button class="primary" data-testid="go-coupon" id="go-coupon">주문하기</button>
+  </main>
+  <script src="common.js"></script>
+  <script>
+    const listEl = document.getElementById("list");
+    const emptyEl = document.getElementById("empty");
+    const subtotalEl = document.getElementById("subtotal");
+    let items = [];
+
+    function render() {
+      emptyEl.hidden = items.length > 0;
+      document.getElementById("go-coupon").disabled = items.length === 0;
+      subtotalEl.textContent = won(items.reduce((s, i) => s + i.price * i.qty, 0));
+      // 행 재사용 (연타 중 요소 교체 방지)
+      const ids = new Set(items.map((i) => String(i.product_id)));
+      for (const row of [...listEl.children]) {
+        if (!ids.has(row.dataset.pid)) row.remove();
+      }
+      for (const i of items) {
+        let row = listEl.querySelector(`[data-pid="${i.product_id}"]`);
+        if (!row) {
+          row = createRow(i);
+          listEl.append(row);
+        }
+        row.querySelector(".qty").textContent = String(i.qty);
+      }
+    }
+
+    function createRow(i) {
+      const row = el("div", { class: "card row", testid: `cart-item-${i.product_id}` }, [
+        el("span", { class: "grow", text: `${i.name} (${won(i.price)})` }),
+        el("button", {
+          testid: `qty-dec-${i.product_id}`,
+          text: "−",
+          onclick: () => changeQty(i.product_id, -1),
+        }),
+        el("span", { class: "qty", testid: `cart-qty-${i.product_id}` }),
+        el("button", {
+          testid: `qty-inc-${i.product_id}`,
+          text: "+",
+          onclick: () => changeQty(i.product_id, 1),
+        }),
+      ]);
+      row.dataset.pid = String(i.product_id);
+      return row;
+    }
+
+    function setLocalQty(productId, delta) {
+      const item = items.find((i) => i.product_id === productId);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty <= 0) items = items.filter((i) => i !== item);
+      render();
+    }
+
+    async function changeQty(productId, delta) {
+      const { bug_mode } = await getConfig();
+      if (bug_mode) {
+        // BUG-04 : 낙관적 반영 후 실패 시 롤백 누락
+        setLocalQty(productId, delta);
+        updateCart(productId, delta).catch(() => {});
+        return;
+      }
+      try {
+        const cart = await updateCart(productId, delta);
+        items = cart.items;
+      } catch (e) {
+        items = (await api("/api/cart")).items;
+      }
+      render();
+    }
+
+    document.getElementById("go-coupon").addEventListener("click", () => {
+      location.href = "coupon.html";
+    });
+
+    renderNav()
+      .then(() => api("/api/cart"))
+      .then((cart) => {
+        items = cart.items;
+        render();
+      });
+  </script>
+</body>
+</html>

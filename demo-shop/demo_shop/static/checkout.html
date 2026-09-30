@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>결제 - Demo Shop</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav></nav>
+  <main>
+    <h1>결제</h1>
+    <div class="card">
+      <dl class="summary">
+        <dt>상품 합계</dt><dd data-testid="checkout-subtotal" id="subtotal">-</dd>
+        <dt>할인</dt><dd data-testid="checkout-discount" id="discount">-</dd>
+        <dt class="total">결제 금액</dt><dd class="total" data-testid="checkout-total" id="total">-</dd>
+      </dl>
+    </div>
+    <button class="primary" data-testid="pay-button" id="pay">결제</button>
+    <p class="error" data-testid="error-message" id="error"></p>
+  </main>
+  <script src="common.js"></script>
+  <script>
+    // 결제 시도 단위 멱등성 키
+    const idempotencyKey = uuid();
+    const errorEl = document.getElementById("error");
+
+    document.getElementById("pay").addEventListener("click", async () => {
+      errorEl.textContent = "";
+      try {
+        await api("/api/orders", {
+          method: "POST",
+          headers: { "Idempotency-Key": idempotencyKey },
+        });
+        location.href = "orders.html";
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    });
+
+    renderNav()
+      .then(() => api("/api/cart"))
+      .then((cart) => {
+        document.getElementById("subtotal").textContent = won(cart.subtotal);
+        document.getElementById("discount").textContent = `-${won(cart.discount)}`;
+        document.getElementById("total").textContent = won(cart.total);
+        document.getElementById("pay").disabled = cart.items.length === 0;
+      });
+  </script>
+</body>
+</html>
