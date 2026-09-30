@@ -30,6 +30,7 @@ PAGES = {
 # Then 대기 (느린 네트워크 교란 감안)
 THEN_TIMEOUT = 30
 NAV_TIMEOUT = 15
+PRODUCTS_TIMEOUT = 5  # 상품 목록 표시 대기
 SETTLE_SEC = 0.5
 
 
@@ -133,7 +134,7 @@ def product_visible(ctx: StepContext, product):
         ctx.driver.open(ctx.url(PAGES["상품 목록"]))
     target = f"xpath=//*[starts-with(@data-testid,'product-name-')][normalize-space(text())='{product}']"
     try:
-        wait_until(lambda: ctx.driver.text_of(target), timeout=THEN_TIMEOUT)
+        wait_until(lambda: ctx.driver.text_of(target), timeout=PRODUCTS_TIMEOUT)
     except TimeoutError:
         raise AssertionError(f"상품 목록에 {product} 없음") from None
 
