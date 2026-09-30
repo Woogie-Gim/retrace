@@ -50,6 +50,18 @@ def test_priority_and_kind_order():
     assert not cands[-1].priority and cands[-1].position == 0
 
 
+def test_prefer_kind_goes_first():
+    cands = Explorer(None, "x", ExploreOptions(prefer=("network",))).candidates(seed())
+    kinds = [c.kind for c in cands]
+    n = kinds.count("network")
+    assert n and kinds[:n] == ["network"] * n
+    # 우선 종류 내에서도 상태 변경 직후 우선
+    assert cands[0].priority
+    # 나머지는 기존 순서 유지
+    base = [(c.kind, c.position) for c in Explorer(None, "x").candidates(seed()) if c.kind != "network"]
+    assert [(c.kind, c.position) for c in cands[n:]] == base
+
+
 def test_back_replays_idempotent_step():
     cands = Explorer(None, "x").candidates(seed())
     back = {c.position: c for c in cands if c.kind == "back"}
