@@ -116,8 +116,10 @@ export function render(root, _param, ctx) {
       ),
       health && !health.target_alive && h('div', { class: 'inline-alert warn' },
         h('span', {}, '⚠'),
-        h('div', {}, '데모 서버가 응답하지 않아 실행이 실패합니다. ',
-          h('code', {}, 'cd demo-shop && python -m demo_shop'), ` 로 ${health.base_url} 를 먼저 띄우세요.`)),
+        ctx.packaged
+          ? h('div', {}, `데모 서버(${health.base_url})가 응답하지 않아 실행이 실패합니다. 포트 점유 여부를 확인하고 앱을 다시 시작하세요.`)
+          : h('div', {}, '데모 서버가 응답하지 않아 실행이 실패합니다. ',
+            h('code', {}, 'cd demo-shop && python -m demo_shop'), ` 로 ${health.base_url} 를 먼저 띄우세요.`)),
       h('div', { class: 'card' },
         h('div', { class: 'card-head' }, '오라클', h('span', { class: 'right dim' }, '증상 판정 기준')),
         h('div', { class: 'card-body', style: { display: 'grid', gap: '16px' } },
@@ -164,7 +166,9 @@ export function render(root, _param, ctx) {
       btn.disabled = false;
       btn.textContent = '▶  탐색 실행';
       const busy = e.status === 409;
-      const hint = e.status === 503 ? ' — demo-shop 을 먼저 실행하세요 (cd demo-shop && python -m demo_shop)' : '';
+      const hint = e.status !== 503 ? ''
+        : ctx.packaged ? ' — 데모 서버 자동 기동 실패, 앱을 다시 시작하세요'
+          : ' — demo-shop 을 먼저 실행하세요 (cd demo-shop && python -m demo_shop)';
       clear(errorBox, h('div', { class: 'inline-alert error' },
         h('span', {}, '✕'),
         h('div', {}, h('b', {}, busy ? '이미 실행 중' : '실행 시작 실패'), ` · ${e.message}${hint}`,

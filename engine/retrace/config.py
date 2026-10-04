@@ -1,10 +1,21 @@
 """환경변수 기반 엔진 설정"""
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+
+def _root_dir() -> Path:
+    # RETRACE_ROOT 우선 → 빌드 exe면 exe 폴더 → 저장소 루트
+    if os.getenv("RETRACE_ROOT"):
+        return Path(os.environ["RETRACE_ROOT"]).resolve()
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT_DIR = _root_dir()
 
 # 루트 .env 로드 (이미 설정된 환경변수 우선)
 load_dotenv(ROOT_DIR / ".env")

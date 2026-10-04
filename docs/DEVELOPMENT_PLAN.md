@@ -545,24 +545,33 @@ git commit -m "feat(llm): 증상 기반 교란 우선순위 추천"
 
 ### 8-1. 엔진 빌드 (PyInstaller)
 
-```bash
-cd engine
-pyinstaller -n engine --onedir --collect-all selenium --collect-all gherkin retrace/server/__main__.py
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-engine.ps1
 ```
 
+- 출력 : `engine/dist/engine/engine.exe` (onedir) + `demo-shop/dist/demo-shop.exe` (onefile)
 - Selenium Manager 바이너리 포함 여부 확인 (`--collect-all selenium`)
 - 데모 쇼핑몰도 `demo-shop.exe`로 별도 빌드해 앱 하나로 시연 가능하게 구성
 
 ### 8-2. 앱 빌드 (electron-builder)
-- `extraResources`로 `engine/dist/engine` + `demo-shop.exe` 포함
+
+```powershell
+cd app
+npm run dist   # 출력 : release/
+```
+
+- `extraResources`로 `engine/dist/engine` + `demo-shop.exe` + `features/seeds` 포함
+- Electron이 엔진 실행 시 `RETRACE_ROOT`(= resources 폴더) 전달
+- 리포트는 설치 폴더가 아닌 사용자 데이터 폴더(`%APPDATA%\Retrace\reports`)에 저장 (`RETRACE_REPORTS_DIR`)
+- 배포 모드에서 Electron이 `demo-shop.exe`도 자동 기동 · 종료 시 함께 정리
 - 타깃 : Windows NSIS 설치본 + portable zip
 - 앱 이름 `Retrace` / 버전 `1.0.0`
 
 ### 8-3. 클린 환경 점검
-- [ ] Python 미설치 PC에서 실행 확인
-- [ ] 크롬만 설치된 상태에서 첫 실행 시 드라이버 자동 확보 확인 (인터넷 필요)
-- [ ] 포트 점유 시 에러 메시지 표시
-- [ ] 앱 종료 후 작업 관리자에 엔진·크롬 프로세스 잔존 없음
+- [ ] Python 미설치 PC에서 실행 확인 (PATH에서 Python 제외 상태로 동작 확인, 실제 클린 PC 미확인)
+- [ ] 크롬만 설치된 상태에서 첫 실행 시 드라이버 자동 확보 확인 (인터넷 필요) (빈 Selenium 캐시에서 chromedriver 자동 다운로드 확인, 실제 클린 PC 미확인)
+- [x] 포트 점유 시 에러 메시지 표시
+- [x] 앱 종료 후 작업 관리자에 엔진·크롬 프로세스 잔존 없음
 
 ### 8-4. GitHub Release
 

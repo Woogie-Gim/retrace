@@ -140,8 +140,15 @@ const FAIL_HINT = {
   spawn: '엔진 실행 파일을 실행할 수 없습니다.',
 };
 
+// 배포 모드 : .env · 가상환경 없음
+const PACKAGED_HINT = {
+  missing: '설치 파일이 손상되었습니다. 앱을 다시 설치하세요.',
+  port: '다른 프로그램이 엔진 포트를 사용 중입니다. 해당 프로세스를 종료하거나 ENGINE_PORT 환경변수로 포트를 변경하세요.',
+};
+
 function applyStatus(st) {
   if (!st) return;
+  ctx.packaged = !!st.packaged;
   $foot.textContent = st.url ? `engine ${st.url.replace('http://', '')}${st.attached ? ' (attached)' : ''}` : 'engine —';
   if (st.state === 'ready') {
     setBase(st.url);
@@ -163,7 +170,7 @@ function applyStatus(st) {
     const logs = (st.logs || []).slice(-30).join('\n');
     showOverlay(st.state, stateView('error', {
       title: st.state === 'failed' ? '엔진을 시작하지 못함' : '엔진이 종료됨',
-      desc: [st.message, FAIL_HINT[st.reason]].filter(Boolean).join(' — '),
+      desc: [st.message, (st.packaged && PACKAGED_HINT[st.reason]) || FAIL_HINT[st.reason]].filter(Boolean).join(' — '),
       detail: logs || null,
       actions: [restartButton(st.state === 'failed' ? '다시 시도' : '엔진 다시 시작')],
     }));
