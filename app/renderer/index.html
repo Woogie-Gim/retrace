@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*">
+  <title>Retrace</title>
+  <link rel="stylesheet" href="../node_modules/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
+  <link rel="stylesheet" href="../node_modules/@fontsource/jetbrains-mono/400.css">
+  <link rel="stylesheet" href="../node_modules/@fontsource/jetbrains-mono/600.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">▍</span>
+        <span class="brand-name">Retrace</span>
+      </div>
+      <nav class="nav" id="nav">
+        <a href="#/scenarios" data-route="scenarios"><span class="nav-icon">◇</span>시나리오</a>
+        <a href="#/run" data-route="run"><span class="nav-icon">▶</span>실행<span class="nav-live" id="nav-live" hidden></span></a>
+        <a href="#/reports" data-route="reports"><span class="nav-icon">▤</span>리포트</a>
+        <a href="#/history" data-route="history"><span class="nav-icon">◷</span>히스토리</a>
+      </nav>
+      <div class="sidebar-foot mono" id="engine-foot">engine —</div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="view" id="view"></main>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay" hidden></div>
+  <div class="toasts" id="toasts"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

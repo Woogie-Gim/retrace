@@ -1,0 +1,43 @@
+/* 디자인 토큰 : 다크 QA 콘솔 */
+:root {
+  /* 기본 */
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1c232c;
+  --surface-3: #232b36;
+  --border: #2a333f;
+  --border-strong: #3a4554;
+  --text: #e6edf3;
+  --text-dim: #8b96a5;
+  --text-faint: #5c6775;
+  --accent: #2dd4bf;
+  --accent-soft: rgba(45, 212, 191, 0.12);
+  --accent-line: rgba(45, 212, 191, 0.45);
+
+  /* 상태 : 재현율 등급 */
+  --grade-confirmed: #f05252;
+  --grade-intermittent: #f59e0b;
+  --grade-rare: #8b96a5;
+  --grade-none: #4b5563;
+
+  /* 상태 : 원인 계층 */
+  --layer-fe: #3b82f6;
+  --layer-be: #a855f7;
+  --layer-unknown: #6b7280;
+
+  /* 상태 : 일반 */
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --danger: #f05252;
+  --danger-soft: rgba(240, 82, 82, 0.1);
+
+  /* 폰트 */
+  --font-body: 'Pretendard Variable', Pretendard, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  /* 형태 */
+  --radius: 8px;
+  --radius-sm: 5px;
+  --gap: 16px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
