@@ -14,6 +14,7 @@ from retrace.scenario.registry import StepContext
 from retrace.scenario.runner import reset_target
 
 SHOP_DIR = config.ROOT_DIR / "demo-shop"
+WINDOW = (1280, 800)
 
 # 레지스트리 스텝 → 이 모듈에 pytest-bdd 스텝 픽스처 주입
 register_pytest_bdd()
@@ -60,5 +61,8 @@ def driver():
 
 @pytest.fixture
 def ctx(driver, base_url):
+    # 이전 테스트 교란(네트워크·창 크기) 복구 후 상태 초기화
+    driver.set_network("fast")
+    driver.resize(*WINDOW)
     reset_target(base_url)
     return StepContext(driver=driver, base_url=base_url)

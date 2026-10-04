@@ -1,6 +1,7 @@
 """탐색기 : 시드 시나리오에 교란 삽입 → 반복 실행 → 오라클 판정"""
 import time
 from dataclasses import asdict, dataclass, field, replace
+from pathlib import Path
 from typing import Callable
 
 from ..driver import Driver
@@ -106,11 +107,12 @@ def run_clean(
     scenario: Scenario,
     window: tuple[int, int] = (1280, 800),
     registry: StepRegistry | None = None,
+    out_dir: str | Path | None = None,
 ) -> RunResult:
     # 이전 run 교란 원상 복구 후 실행
     driver.set_network("fast")
     driver.resize(*window)
-    return run_scenario(scenario, driver, base_url, registry=registry)
+    return run_scenario(scenario, driver, base_url, out_dir=out_dir, registry=registry)
 
 
 class Explorer:

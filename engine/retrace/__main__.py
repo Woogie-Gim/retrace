@@ -1,4 +1,4 @@
-"""CLI : python -m retrace run|explore|minimize|verify"""
+"""CLI : python -m retrace run|explore|minimize|verify|report"""
 import argparse
 import json
 import sys
@@ -9,7 +9,8 @@ from . import config, steps  # noqa: F401  스텝 등록
 from .driver import SeleniumDriver
 from .explorer import Explorer, ExploreOptions, run_clean
 from .minimizer import Minimizer
-from .oracle import select_oracles
+from .oracle import ApiOracle, ConsoleOracle, DomOracle, NetworkOracle, select_oracles
+from .reporter import build_report, load_repro, pick_latest
 from .scenario import parse_feature_file, run_scenario, save_result
 from .scenario.parser import Scenario, Step
 from .verifier import verify
@@ -206,6 +207,47 @@ def cmd_verify(args) -> int:
     return 0 if ok else 1
 
 
+def cmd_report(args) -> int:
+    # minimize.json → 증거 run → 리포트 + features/generated 복사
+    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out_root = Path(args.out) / f"report-{run_id}"
+    paths = []
+    for p in map(Path, args.inputs):
+        paths += sorted(p.glob("**/minimize.json")) if p.is_dir() else [p]
+    targets = pick_latest(paths)
+    if not targets:
+        print("[skip] 최소화 성공 결과 없음")
+        return 1
+    summary = []
+
+    def on_event(name, data):
+        print(f"    evidence {data['trial'] + 1}/{data['total']}: {data['status']}")
+
+    with SeleniumDriver(headless=not args.headed) as driver:
+        run_fn = lambda sc, out: run_clean(driver, args.base_url, sc, out_dir=out)  # noqa: E731
+        all_oracles = [DomOracle(), ConsoleOracle(), NetworkOracle(), ApiOracle(driver, args.base_url)]
+        for path in targets:
+            repro = load_repro(path, args.seeds)
+            print(f"[report] {repro.name} / {repro.feature}  ({len(repro.steps)}스텝, {path})")
+            _print_steps(repro.steps)
+            kinds = {o.kind for o in select_oracles(repro.tags, driver, args.base_url)}
+            rep = build_report(
+                repro, run_fn, all_oracles, kinds, out_root / repro.name,
+                generated_dir=None if args.no_copy else args.generated,
+                driver_info=driver.info, tries=args.tries, on_event=on_event,
+            )
+            print(f"  원인 계층 {rep['cause']['layer']} : {rep['cause']['reason']}")
+            print(f"  실제 결과 : {rep['actual']}")
+            summary.append(rep)
+
+    print(f"\n요약 → {out_root}")
+    for rep in summary:
+        rate = "-" if rep["verify"]["rate"] is None else f"{rep['verify']['rate']:.0%}"
+        print(f"  {rep['name']:<18} [{rep['verify']['grade']} {rate}] {rep['cause']['layer']:<4} "
+              f"증거 {rep['evidence']['status']}  → {rep['generated'] or '-'}")
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(prog="retrace")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -241,8 +283,17 @@ def main() -> int:
     v.add_argument("--n", type=int, default=10, help="반복 횟수")
     v.add_argument("--expect-fixed", action="store_true", help="BUG_MODE=off 수정 확인 (재현율 0% 기대)")
     v.add_argument("--headed", action="store_true", help="브라우저 창 표시")
+    rp = sub.add_parser("report", help="최소 재현 결과 리포트 생성")
+    rp.add_argument("inputs", nargs="+", help="minimize.json 또는 포함 폴더 (이름별 최신 결과 사용)")
+    rp.add_argument("--base-url", default=config.BASE_URL)
+    rp.add_argument("--out", default=str(config.REPORTS_DIR))
+    rp.add_argument("--seeds", default=str(config.ROOT_DIR / "features" / "seeds"))
+    rp.add_argument("--generated", default=str(config.ROOT_DIR / "features" / "generated"))
+    rp.add_argument("--tries", type=int, default=10, help="증거 run 최대 시도 횟수")
+    rp.add_argument("--no-copy", action="store_true", help="features/generated 복사 생략")
+    rp.add_argument("--headed", action="store_true", help="브라우저 창 표시")
     args = p.parse_args()
-    cmds = {"explore": cmd_explore, "minimize": cmd_minimize, "verify": cmd_verify}
+    cmds = {"explore": cmd_explore, "minimize": cmd_minimize, "verify": cmd_verify, "report": cmd_report}
     return cmds.get(args.cmd, cmd_run)(args)
 
 
