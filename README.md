@@ -3,7 +3,7 @@
 > 증상만 알려진 간헐 결함의 **최소 재현 스텝을 자동으로 찾아내는** 웹 QA 도구
 > 찾아낸 재현 스텝은 그대로 실행 가능한 BDD 회귀 테스트가 됩니다
 
-![탐색 실행 화면](assets/explore.png)
+![탐색 실행 화면](docs/assets/explore.png)
 
 ---
 
@@ -94,7 +94,7 @@ Feature: 장바구니 수량 불일치
 - 원인 계층 : FE (API 정상 + 화면 값 불일치 / 화면 5 · API 4)
 - 근거 : dom·network(409 응답)·api 오라클 3종 동시 hit
 
-![리포트 화면](assets/report.png)
+![리포트 화면](docs/assets/report.png)
 
 ---
 
