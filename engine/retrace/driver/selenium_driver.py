@@ -131,5 +131,13 @@ class SeleniumDriver(Driver):
             })
         return logs
 
+    def info(self) -> dict:
+        caps = self.wd.capabilities
+        size = self.wd.get_window_size()
+        return {
+            "browser": f"{caps.get('browserName', '')} {caps.get('browserVersion', '')}".strip(),
+            "window": f"{size['width']}x{size['height']}",
+        }
+
     def close(self) -> None:
         self.wd.quit()

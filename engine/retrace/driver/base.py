@@ -29,6 +29,10 @@ class Driver(ABC):
     @abstractmethod
     def network_logs(self) -> list[dict]: ...
 
+    # 리포트 환경 정보 (필요한 구현만 재정의)
+    def info(self) -> dict:
+        return {}
+
     # 자원 정리 (필요한 구현만 재정의)
     def close(self) -> None:
         pass
