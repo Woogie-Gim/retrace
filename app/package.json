@@ -1,17 +1,65 @@
 {
-  "name": "retrace-app",
-  "version": "0.6.0",
+  "name": "retrace",
+  "productName": "Retrace",
+  "version": "1.0.0",
   "private": true,
   "description": "Retrace 대시보드",
+  "author": "Seon Wook Gim",
   "main": "main/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win nsis zip --x64"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.0.0",
     "pretendard": "^1.3.9"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.retrace.app",
+    "productName": "Retrace",
+    "directories": {
+      "output": "../release"
+    },
+    "files": [
+      "main/**",
+      "renderer/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../engine/dist/engine",
+        "to": "engine",
+        "filter": [
+          "**/*",
+          "!reports/**"
+        ]
+      },
+      {
+        "from": "../demo-shop/dist/demo-shop.exe",
+        "to": "demo-shop.exe"
+      },
+      {
+        "from": "../features/seeds",
+        "to": "features/seeds"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "artifactName": "Retrace-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Retrace-Setup-${version}.${ext}"
+    }
   }
 }

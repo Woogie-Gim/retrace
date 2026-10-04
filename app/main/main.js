@@ -3,7 +3,11 @@ const { app, BrowserWindow, ipcMain, clipboard, shell } = require('electron');
 const path = require('path');
 const { Engine } = require('./engine');
 
-const engine = new Engine({ isPackaged: app.isPackaged });
+// 배포 모드 리포트 : 설치 폴더 대신 사용자 데이터 폴더 (%APPDATA%\Retrace\reports)
+const engine = new Engine({
+  isPackaged: app.isPackaged,
+  reportsDir: app.isPackaged ? path.join(app.getPath('userData'), 'reports') : null,
+});
 let win = null;
 
 function createWindow() {
