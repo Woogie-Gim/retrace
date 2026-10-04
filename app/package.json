@@ -1,0 +1,17 @@
+{
+  "name": "retrace-app",
+  "version": "0.6.0",
+  "private": true,
+  "description": "Retrace 대시보드",
+  "main": "main/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.0.0",
+    "pretendard": "^1.3.9"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}
