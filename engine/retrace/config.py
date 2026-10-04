@@ -10,6 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT_DIR / ".env")
 
 DEMO_SHOP_PORT = int(os.getenv("DEMO_SHOP_PORT", "5100"))
+ENGINE_PORT = int(os.getenv("ENGINE_PORT", "5200"))
 BASE_URL = os.getenv("RETRACE_BASE_URL", f"http://127.0.0.1:{DEMO_SHOP_PORT}").rstrip("/")
 REPORTS_DIR = Path(os.getenv("RETRACE_REPORTS_DIR", ROOT_DIR / "reports"))
 HEADLESS = os.getenv("RETRACE_HEADLESS", "1").strip() != "0"
