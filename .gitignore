@@ -13,3 +13,4 @@ release/
 reports/
 .env
 .pytest_cache/
+ci-out/

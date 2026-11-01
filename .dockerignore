@@ -1,0 +1,16 @@
+# 빌드 컨텍스트 제외 (비밀값·산출물·로컬 환경)
+.git
+.github
+.env
+.env.*
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+reports
+app
+release
+**/dist
+**/build
+docs

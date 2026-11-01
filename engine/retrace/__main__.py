@@ -172,13 +172,30 @@ def _print_verify(ver) -> None:
     print(f"  재현율 {rate} ({ver.hits}/{ver.hits + ver.passes}, invalid {ver.invalid}) → {ver.grade}{fixed}")
 
 
+def verify_targets(inputs: list[str]) -> list[tuple[str, Path, Scenario]]:
+    # 입력 → (출력 폴더명, 원본 경로, 시나리오) : minimize.json 최소 스텝 또는 .feature 시나리오
+    paths = []
+    for p in map(Path, inputs):
+        paths += sorted(p.glob("**/minimize.json")) if p.is_dir() else [p]
+    targets = []
+    for path in paths:
+        if path.suffix == ".feature":
+            scs = parse_feature_file(path).scenarios
+            for i, sc in enumerate(scs):
+                targets.append((path.stem if len(scs) == 1 else f"{path.stem}-{i:02d}", path, sc))
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
+        mini = data["minimize"]
+        sc = Scenario(mini["scenario"], data["tags"], [Step(**s) for s in mini["minimized"]])
+        targets.append((path.parent.name, path, sc))
+    return targets
+
+
 def cmd_verify(args) -> int:
-    # minimize.json의 최소 스텝만 반복 실행
+    # 최소 스텝(minimize.json) 또는 .feature 시나리오 반복 실행
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_root = Path(args.out) / f"verify-{run_id}"
-    paths = []
-    for p in map(Path, args.inputs):
-        paths += sorted(p.glob("**/minimize.json")) if p.is_dir() else [p]
+    targets = verify_targets(args.inputs)
     ok = True
 
     def on_event(name, data):
@@ -187,11 +204,7 @@ def cmd_verify(args) -> int:
 
     with SeleniumDriver(headless=not args.headed) as driver:
         run_fn = lambda sc: run_clean(driver, args.base_url, sc)  # noqa: E731
-        for path in paths:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            mini = data["minimize"]
-            sc = Scenario(mini["scenario"], data["tags"], [Step(**s) for s in mini["minimized"]])
-            name = path.parent.name
+        for name, path, sc in targets:
             print(f"[verify] {name} / {sc.name}  ({len(sc.steps)}스텝)")
             _print_steps(sc.steps)
             oracles = select_oracles(sc.tags, driver, args.base_url)
@@ -277,7 +290,7 @@ def main() -> int:
     m.add_argument("--expect-fixed", action="store_true", help="BUG_MODE=off 수정 확인 (재현율 0% 기대)")
     m.add_argument("--headed", action="store_true", help="브라우저 창 표시")
     v = sub.add_parser("verify", help="최소 스텝 재현율 검증")
-    v.add_argument("inputs", nargs="+", help="minimize.json 또는 포함 폴더")
+    v.add_argument("inputs", nargs="+", help="minimize.json · 포함 폴더 · .feature 파일")
     v.add_argument("--base-url", default=config.BASE_URL)
     v.add_argument("--out", default=str(config.REPORTS_DIR))
     v.add_argument("--n", type=int, default=10, help="반복 횟수")
