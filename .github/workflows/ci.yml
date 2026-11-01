@@ -1,0 +1,147 @@
+# Retrace CI : 회귀 게이트 + 도커 스모크
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONIOENCODING: utf-8
+  # 러너 Chrome 안정 옵션 (샌드박스·/dev/shm 제약 회피)
+  RETRACE_CHROME_ARGS: "--no-sandbox --disable-dev-shm-usage"
+  # 상품 목록 대기 (초). 로컬·컨테이너 off 통과 확인으로 기본값 유지, 러너 부하 시에만 상향
+  RETRACE_PRODUCTS_TIMEOUT: "5"
+  SHOP: http://127.0.0.1:5100
+
+jobs:
+  regression:
+    name: 회귀 검증
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: engine/requirements.txt
+
+      - name: 의존성 설치
+        run: pip install -r engine/requirements.txt
+
+      - name: 브라우저 버전
+        run: |
+          google-chrome --version
+          python -c "import selenium; print('selenium', selenium.__version__)"
+
+      - name: 데모 쇼핑몰 기동 함수
+        run: |
+          mkdir -p ci-out reports/ci
+          cat > ci-out/shop.sh <<'EOF'
+          # 사용법 : bash ci-out/shop.sh <on|off> → 기동 + 헬스체크 대기
+          pkill -f "uvicorn demo_shop.app:app" && sleep 2 || true
+          (cd demo-shop && BUG_MODE="$1" nohup python -m uvicorn demo_shop.app:app \
+            --host 127.0.0.1 --port 5100 > "../ci-out/shop-$1.log" 2>&1 &)
+          want="\"bug_mode\":$([ "$1" = on ] && echo true || echo false)"
+          # 기대 모드 응답까지 대기 (최대 30초)
+          for i in $(seq 1 30); do
+            curl -sf "$SHOP/api/config" | grep -q "$want" && echo "shop ready : $want (${i}s)" && exit 0
+            sleep 1
+          done
+          echo "shop 기동 실패 : $want" && cat "ci-out/shop-$1.log" && exit 1
+          EOF
+
+      - name: "BUG_MODE=off : 전체 테스트"
+        run: |
+          bash ci-out/shop.sh off
+          python -m pytest engine/tests -v --junitxml=ci-out/off.xml || echo "pytest exit $? (게이트 단계에서 판정)"
+
+      - name: "BUG_MODE=on : 회귀 시나리오"
+        run: |
+          bash ci-out/shop.sh on
+          python -m pytest engine/tests/regression -v --junitxml=ci-out/on.xml || echo "pytest exit $? (게이트 단계에서 판정)"
+
+      - name: "BUG_MODE=on : 확률 결함 재현율 (정보 표시)"
+        continue-on-error: true
+        working-directory: engine
+        run: |
+          python -m retrace verify ../features/generated/gold_coupon-00.feature \
+            ../features/generated/cart_qty-00.feature --n 10 --out ../reports/ci/verify
+
+      - name: "BUG_MODE=on : 생성 시나리오 증거 수집 (스크린샷·콘솔·네트워크)"
+        continue-on-error: true
+        working-directory: engine
+        run: |
+          for f in ../features/generated/*.feature; do
+            python -m retrace run "$f" --out "../reports/ci/run/$(basename "$f" .feature)" || true
+          done
+
+      - name: 게이트 판정
+        if: always()
+        run: python scripts/ci_gate.py --off ci-out/off.xml --on ci-out/on.xml --verify-dir reports/ci/verify
+
+      - name: 산출물 업로드
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-${{ github.run_attempt }}
+          path: |
+            ci-out/
+            reports/ci/
+            features/generated/
+          if-no-files-found: warn
+
+  docker-smoke:
+    name: 도커 스모크
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 이미지 빌드
+        run: docker compose build
+
+      - name: 서비스 기동
+        run: |
+          # 컨테이너 uid 1000 쓰기 허용
+          mkdir -p reports && chmod 777 reports
+          BUG_MODE=on docker compose up -d --wait
+          docker compose ps
+          docker compose run --rm --no-deps engine sh -c 'chromium --version; test ! -e /app/.env && echo "/app/.env 없음"'
+
+      - name: 탐색 → 최소화 → 검증(3회) → 리포트
+        run: docker compose run --rm --no-deps -e VERIFY_N=3 engine sh /app/docker/pipeline.sh features/seeds/double_order.feature
+
+      - name: "단언 : 확정 100% + BE"
+        run: |
+          python3 - <<'EOF'
+          import glob, json, os
+          path = sorted(glob.glob("reports/pipeline-*/report-*/double_order-00/report.json"))[-1]
+          r = json.load(open(path, encoding="utf-8"))
+          v, layer = r["verify"], r["cause"]["layer"]
+          print(path, v, layer)
+          ok = v["grade"] == "확정" and v["rate"] == 1.0 and v["runs"] == 3 and layer == "BE"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("## 도커 스모크 (중복 주문 시드)\n\n| 결함 | 재현율 | 등급 | 원인 계층 | 결과 |\n|---|---|---|---|---|\n")
+              f.write(f"| 결제 중복 주문 | {v['rate']:.0%} ({v['hits']}/{v['runs']}) | {v['grade']} | {layer} | {'✅ PASS' if ok else '❌ FAIL'} |\n")
+          assert ok, "확정 100% + BE 아님"
+          EOF
+
+      - name: 로그 수집 및 정리
+        if: always()
+        run: |
+          docker compose logs --no-color > reports/compose.log 2>&1 || true
+          docker compose down -v
+
+      - name: 산출물 업로드
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-smoke-${{ github.run_attempt }}
+          path: reports/
+          if-no-files-found: warn

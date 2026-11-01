@@ -25,3 +25,11 @@ ENGINE_PORT = int(os.getenv("ENGINE_PORT", "5200"))
 BASE_URL = os.getenv("RETRACE_BASE_URL", f"http://127.0.0.1:{DEMO_SHOP_PORT}").rstrip("/")
 REPORTS_DIR = Path(os.getenv("RETRACE_REPORTS_DIR", ROOT_DIR / "reports"))
 HEADLESS = os.getenv("RETRACE_HEADLESS", "1").strip() != "0"
+
+# 브라우저 경로·추가 옵션 (미설정 시 Selenium Manager 기본 동작)
+CHROME_BINARY = os.getenv("RETRACE_CHROME_BINARY") or None
+CHROMEDRIVER = os.getenv("RETRACE_CHROMEDRIVER") or None
+CHROME_ARGS = os.getenv("RETRACE_CHROME_ARGS", "").split()
+
+# 상품 목록 표시 대기 (초, CI 부하 시 상향)
+PRODUCTS_TIMEOUT = float(os.getenv("RETRACE_PRODUCTS_TIMEOUT", "5"))

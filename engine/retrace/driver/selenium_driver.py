@@ -5,6 +5,7 @@ from pathlib import Path
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
@@ -39,8 +40,15 @@ class SeleniumDriver(Driver):
         if config.HEADLESS if headless is None else headless:
             opts.add_argument("--headless=new")
         opts.add_argument(f"--window-size={window[0]},{window[1]}")
+        # 컨테이너용 옵션 (예: --no-sandbox --disable-dev-shm-usage)
+        for arg in config.CHROME_ARGS:
+            opts.add_argument(arg)
+        if config.CHROME_BINARY:
+            opts.binary_location = config.CHROME_BINARY
         opts.set_capability("goog:loggingPrefs", {"browser": "ALL", "performance": "ALL"})
-        self.wd = webdriver.Chrome(options=opts)
+        # 드라이버 경로 미지정 시 Selenium Manager 자동 확보
+        service = Service(executable_path=config.CHROMEDRIVER) if config.CHROMEDRIVER else None
+        self.wd = webdriver.Chrome(options=opts, service=service)
         self.timeout = timeout
         self.wd.execute_cdp_cmd("Network.enable", {})
 

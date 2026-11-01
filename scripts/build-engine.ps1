@@ -1,5 +1,6 @@
 ﻿# PyInstaller 빌드 : 엔진(onedir) + 데모 쇼핑몰(onefile)
 # 출력 : engine/dist/engine/engine.exe, demo-shop/dist/demo-shop.exe
+# 사전 설치 : engine/.venv/Scripts/pip install -r engine/requirements-build.txt
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..')
 $pyinstaller = Join-Path $root 'engine\.venv\Scripts\pyinstaller.exe'

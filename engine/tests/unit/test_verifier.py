@@ -1,3 +1,5 @@
+import json
+
 from retrace.oracle import DomOracle
 from retrace.scenario.parser import Scenario, Step
 from retrace.scenario.runner import RunResult, StepResult
@@ -47,3 +49,25 @@ def test_expect_fixed():
     assert verify(SC, runner("p"), [DomOracle()], n=5, expect_fixed=True).fixed is True
     assert verify(SC, runner("ppppph"), [DomOracle()], n=6, expect_fixed=True).fixed is False
     assert verify(SC, runner("i"), [DomOracle()], n=3, expect_fixed=True).fixed is False
+
+
+def test_verify_targets_feature_and_minimize(tmp_path):
+    # .feature 입력 : Background 병합 + feature 태그 / minimize.json 입력 : 최소 스텝
+    from retrace.__main__ import verify_targets
+
+    feat = tmp_path / "dup.feature"
+    feat.write_text(
+        "@oracle-api\nFeature: f\n  Background:\n    Given 로그인\n\n"
+        "  Scenario: s\n    When 결제\n    Then 확인\n",
+        encoding="utf-8",
+    )
+    mini = tmp_path / "dup-00" / "minimize.json"
+    mini.parent.mkdir()
+    mini.write_text(json.dumps({
+        "tags": ["@oracle-network"],
+        "minimize": {"scenario": "m", "minimized": [{"keyword": "When", "text": "결제"}]},
+    }), encoding="utf-8")
+
+    (n1, p1, s1), (n2, p2, s2) = verify_targets([str(feat), str(tmp_path)])
+    assert (n1, p1, s1.tags, [s.text for s in s1.steps]) == ("dup", feat, ["@oracle-api"], ["로그인", "결제", "확인"])
+    assert (n2, p2, s2.name, s2.tags, len(s2.steps)) == ("dup-00", mini, "m", ["@oracle-network"], 1)

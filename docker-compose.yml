@@ -1,0 +1,48 @@
+# Retrace 엔진 + 데모 쇼핑몰 (Electron 대시보드 제외)
+# 기동 : docker compose up -d --wait
+# 파이프라인 : docker compose run --rm --no-deps engine sh /app/docker/pipeline.sh features/seeds/double_order.feature
+# --no-deps : 실행 중인 demo-shop 재사용 (생략 시 BUG_MODE 미지정이면 기본값 on으로 재생성)
+name: retrace
+
+x-image: &image
+  build: .
+  image: retrace:local
+
+services:
+  demo-shop:
+    <<: *image
+    working_dir: /app/demo-shop
+    command: ["python", "-m", "uvicorn", "demo_shop.app:app", "--host", "0.0.0.0", "--port", "5100"]
+    environment:
+      BUG_MODE: ${BUG_MODE:-on}
+      BUG_SEED: ${BUG_SEED:-}
+    ports:
+      - "127.0.0.1:5100:5100"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5100/api/config', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  engine:
+    <<: *image
+    command: ["python", "-m", "retrace.server", "--host", "0.0.0.0", "--port", "5200"]
+    environment:
+      RETRACE_BASE_URL: http://demo-shop:5100
+      RETRACE_PRODUCTS_TIMEOUT: ${RETRACE_PRODUCTS_TIMEOUT:-5}
+    # Chromium 공유 메모리 여유
+    shm_size: 1gb
+    volumes:
+      - ./reports:/app/reports
+    ports:
+      - "127.0.0.1:5200:5200"
+    depends_on:
+      demo-shop:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5200/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s

@@ -2,6 +2,7 @@
 import re
 import time
 
+from .. import config
 from ..scenario.registry import StepContext, step
 from .shop_api import GRADE_CODES, ShopApi
 
@@ -30,7 +31,7 @@ PAGES = {
 # Then 대기 (느린 네트워크 교란 감안)
 THEN_TIMEOUT = 30
 NAV_TIMEOUT = 15
-PRODUCTS_TIMEOUT = 5  # 상품 목록 표시 대기
+PRODUCTS_TIMEOUT = config.PRODUCTS_TIMEOUT  # 상품 목록 표시 대기 (RETRACE_PRODUCTS_TIMEOUT)
 SETTLE_SEC = 0.5
 
 
