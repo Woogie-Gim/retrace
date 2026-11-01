@@ -3,6 +3,27 @@
 > 증상만 알려진 간헐 결함의 **최소 재현 스텝을 자동으로 찾아내는** 웹 QA 도구
 > 찾아낸 재현 스텝은 그대로 실행 가능한 BDD 회귀 테스트가 됩니다
 
+[![CI](https://github.com/Woogie-Gim/retrace/actions/workflows/ci.yml/badge.svg)](https://github.com/Woogie-Gim/retrace/actions/workflows/ci.yml)
+
+**빠른 실행 (Docker)**
+
+```bash
+docker compose up -d --wait
+docker compose run --rm --no-deps engine sh /app/docker/pipeline.sh features/seeds/double_order.feature
+# 결과 : reports/pipeline-<시각>/report-*/double_order-00/report.md
+```
+
+**측정 조건**
+
+| 항목 | 조건 |
+|---|---|
+| 아래 검증 결과 표 | 로컬 Windows + Chrome, 재현율은 최소 재현 시나리오 생성 시점 기록값 (반복 횟수 기록 없음) |
+| 회귀 게이트 | Linux 컨테이너 (python:3.13-slim + Chromium 156 headless)에서 CI 회귀 job을 3회 연속 재현해 게이트 3종 모두 통과 |
+| 도커 스모크 | 중복 주문 시드로 탐색 → 최소화 → 검증 3회 → 리포트를 3회 연속 실행해 매번 확정 100% (3/3) · BE |
+| 확률 결함 재현율 (컨테이너, 10회 × 3번) | 쿠폰 30% · 60% · 60% / 수량 30% · 50% · 70% |
+
+**한계** : 확률 결함 재현율은 10회 표본이라 실행마다 크게 흔들립니다. Docker 이미지는 엔진과 데모 쇼핑몰만 담고 있어 Electron 대시보드는 포함하지 않습니다. GitHub 러너에서의 실행 결과는 이 표에 아직 반영하지 않았습니다.
+
 ![탐색 실행 화면](docs/assets/explore.png)
 
 ---
@@ -105,19 +126,22 @@ Feature: 장바구니 수량 불일치
 | 결함 | 찾아낸 교란 | 시드 → hit → 최소 | 첫 재현까지 실행 | 재현율 | 원인 계층 |
 |---|---|---|---|---|---|
 | 결제 연타 중복 주문 | 결제 버튼 연타 | 5 → 6 → 6 | 2회 | 확정 100% | BE |
-| 쿠폰 할인 이중 적용 | 뒤로가기 후 쿠폰 재적용 | 5 → 7 → 6 | 9회 | 간헐 30% | BE |
+| 쿠폰 할인 이중 적용 | 뒤로가기 후 쿠폰 재적용 | 5 → 7 → 6 | 9회 | 간헐 30% ¹ | BE |
 | 저속 네트워크 빈 화면 | 네트워크 slow-3g | 3 → 4 → 4 | network 우선 재탐색 | 확정 100% | FE |
-| 장바구니 수량 불일치 | 수량 버튼 연타 | 5 → 6 → 6 | 14회 | 간헐 90% | FE |
+| 장바구니 수량 불일치 | 수량 버튼 연타 | 5 → 6 → 6 | 14회 | 간헐 90% ¹ | FE |
 
 - 스텝 수는 Background와 Then을 포함한 값입니다
 - 최소 스텝이 시드보다 긴 것이 정상입니다. 시드에 없던 교란 스텝이 결함의 원인이기 때문입니다
+- ¹ 확률 결함입니다. 생성 시점 재현율(약 30% · 약 90%)은 실행할 때마다 달라지고, 결함이 켜져 있어도 개별 실행은 통과할 수 있습니다
 
 ### 회귀 테스트 동작
 
 | | BUG_MODE=on | BUG_MODE=off |
 |---|---|---|
 | 원래 시드 시나리오 4건 | ✅ 4 passed | ✅ 4 passed |
-| 생성된 최소 재현 시나리오 4건 | ❌ 4 failed | ✅ 4 passed |
+| 생성된 최소 재현 시나리오 4건 | ❌ 4 failed ² | ✅ 4 passed |
+
+² 확정 결함 2건(중복 주문 · 빈 화면)은 항상 실패합니다. 확률 결함 2건(쿠폰 약 30% · 수량 약 90%)은 실행에 따라 통과할 수 있어 실패 건수가 2~4건 사이에서 달라집니다
 
 평범한 시드로는 버그가 드러나지 않고 Retrace가 찾아낸 시나리오만 결함을 잡아냅니다.
 결함이 수정되면(`off`) 같은 시나리오가 통과하므로 그대로 회귀 테스트로 쓸 수 있습니다.
@@ -179,7 +203,7 @@ cd retrace
 
 python -m venv engine/.venv
 source engine/.venv/Scripts/activate
-pip install -r engine/requirements.txt
+pip install -r engine/requirements.txt   # 설치본 빌드 시 engine/requirements-build.txt
 cp .env.example .env
 ```
 
@@ -210,10 +234,21 @@ engine/.venv/Scripts/python -m pytest engine/tests -v
 
 `BUG_MODE=on`에서는 `test_generated.py`의 최소 재현 시나리오 4건이 **실패하는 것이 정상**입니다. 결함이 재현된다는 뜻입니다. `BUG_MODE=off`로 띄우면 전부 통과합니다.
 
+### CI 게이트 기준
+
+CI는 결과가 실행마다 같아야 하는 항목만 필수 게이트로 둡니다. 필수 게이트는 세 가지입니다.
+
+1. `off`에서 전체 테스트(시드 4건과 생성 4건 포함)가 통과합니다.
+2. `on`에서 시드 4건이 통과합니다.
+3. `on`에서 확정 100% 결함(중복 주문 · 빈 화면)의 생성 시나리오가 실패합니다.
+
+쿠폰 · 수량 같은 확률 결함은 결함이 켜져 있어도 한 번의 실행에서는 통과할 수 있습니다. 그래서 게이트로 쓰면 코드 변경과 무관하게 빌드가 흔들립니다. 이 두 결함은 `retrace verify`로 10회 반복해 재현율만 측정하고 Step Summary에 정보로 표시하며, 결과는 빌드 성패에 반영하지 않습니다. `BUG_SEED`를 고정하면 결과가 재현될 수 있지만 타이밍 영향을 받는 결함이 있어 게이트로 쓰지 않습니다.
+
 ### 빌드
 
 ```bash
-# 엔진·데모 쇼핑몰 (PowerShell)
+# 엔진·데모 쇼핑몰 (PowerShell, 빌드 전용 의존성 필요)
+engine/.venv/Scripts/pip install -r engine/requirements-build.txt
 scripts/build-engine.ps1
 
 # 앱 설치본·zip
@@ -242,7 +277,9 @@ retrace/
 │   ├── seeds/        # 사람이 작성한 시드 시나리오
 │   └── generated/    # 엔진이 만든 최소 재현 시나리오
 ├── app/              # Electron 대시보드
-├── scripts/          # 빌드 스크립트
+├── scripts/          # 빌드 스크립트 + CI 게이트 판정 (ci_gate.py)
+├── docker/           # 컨테이너 파이프라인 스크립트
+├── .github/workflows # CI (회귀 게이트 + 도커 스모크)
 └── docs/             # 개발 계획서 / 릴리스 노트
 ```
 

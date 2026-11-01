@@ -611,6 +611,53 @@ git commit -m "docs: README 결과표 및 시연 GIF 추가"
 
 ---
 
+## Phase 10 — Docker + CI
+
+엔진과 데모 쇼핑몰을 Linux 컨테이너에서 재현 가능하게 만들고 회귀 게이트를 GitHub Actions로 자동 실행한다. Electron 대시보드와 Windows 설치본은 범위 밖이다.
+
+### 10-1. 엔진 설정 확장
+- 환경변수 추가 (미설정 시 기존 동작 유지)
+  - `RETRACE_CHROME_BINARY` / `RETRACE_CHROMEDRIVER` : 브라우저·드라이버 경로
+  - `RETRACE_CHROME_ARGS` : 추가 옵션 (컨테이너 `--no-sandbox --disable-dev-shm-usage`)
+  - `RETRACE_PRODUCTS_TIMEOUT` : 상품 목록 표시 대기 (기본 5초)
+- `retrace verify`가 `.feature` 입력도 받음 (생성 시나리오 재현율 직접 측정)
+- 빌드 전용 의존성 분리 : `engine/requirements-build.txt` (PyInstaller 등)
+
+### 10-2. Docker
+- `Dockerfile` : `python:3.13-slim` + apt `chromium` · `chromium-driver` · `fonts-noto-cjk`, 비root 실행, 빌드 전용 의존성 제외
+- `docker-compose.yml` : `demo-shop`(BUG_MODE) · `engine`(`RETRACE_BASE_URL=http://demo-shop:5100`)
+  - healthcheck, engine은 demo-shop healthy 후 기동, 포트는 `127.0.0.1` 바인딩
+  - 리포트·생성 `.feature`는 `./reports` 볼륨
+- `docker/pipeline.sh` : 탐색 → 최소화 → 검증 → 리포트 일괄 실행 (`.gitattributes`로 LF 고정)
+- `.dockerignore` : `.env` · `.venv` · `node_modules` · `reports` · `app` · `release` · `dist` · `.git` 제외
+- 실행 시 `docker compose run --rm --no-deps` 사용 (생략하면 BUG_MODE 미지정 시 demo-shop이 on으로 재생성됨)
+
+### 10-3. GitHub Actions (`.github/workflows/ci.yml`)
+- 트리거 push · pull_request · workflow_dispatch / `permissions: contents: read` / job timeout 15분 / 시크릿 미사용
+- job 1 회귀 검증 : `scripts/ci_gate.py`가 junit xml로 판정하고 Step Summary 표 작성
+  - 필수 게이트 : ① off 전체 통과 ② on 시드 4건 통과 ③ on 확정 결함(중복 주문 · 빈 화면) 생성 시나리오 실패
+  - 정보 표시 : 확률 결함(쿠폰 · 수량) `verify` 10회 재현율, 원인 계층은 생성 `.feature` 기록값
+  - 산출물 `if: always()` 업로드 : junit · 리포트 · 생성 `.feature` · 스크린샷 · 콘솔·네트워크 로그
+- job 2 도커 스모크 : 중복 주문 시드로 파이프라인 실행(검증 3회) → `확정 100%` + `BE` 단언
+- 재시도 없음. 확률 결함은 게이트에서 제외하고 `BUG_SEED` 고정 결과도 게이트로 쓰지 않음
+
+### 완료 기준
+- [x] 컨테이너 headless에서 CDP 네트워크 에뮬레이션 · 콘솔·네트워크 로그 수집 · 한글 스크린샷 확인
+- [x] 로컬 Linux 컨테이너에서 회귀 job 3회 연속 게이트 3종 통과
+- [x] 로컬 도커 스모크 3회 연속 `확정 100%` + `BE`
+- [x] 이미지에 `.env` · 빌드 전용 패키지 미포함 확인
+- [ ] GitHub Actions 실제 실행 통과 + 동일 커밋 3회 연속 결과 일치
+- [ ] README 측정 조건에 러너 실측값 반영
+
+### Git
+```bash
+git checkout -b feat/phase-10-docker-ci
+git commit -m "feat(docker): Dockerfile·compose·파이프라인 스크립트 추가"
+git commit -m "ci: GitHub Actions 회귀 검증·도커 스모크 워크플로"
+```
+
+---
+
 ## 부록 — 게임 확장 메모 (3년차 계획)
 
 - `GameDriver(Driver)` 구현 : ADB 입력 + VLM 화면 판정 (기존 VLM 자동화 코드 재사용)
